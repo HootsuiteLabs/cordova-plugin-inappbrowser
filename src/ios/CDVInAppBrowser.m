@@ -47,6 +47,11 @@
     _callbackIdPattern = nil;
 }
 
+- (id)settingForKey:(NSString*)key
+{
+    return [self.commandDelegate.settings objectForKey:[key lowercaseString]];
+}
+
 - (void)onReset
 {
     [self close:nil];
@@ -137,10 +142,17 @@
     }
 
     if (self.inAppBrowserViewController == nil) {
-        NSString* originalUA = [CDVUserAgentUtil originalUserAgent];
-        self.inAppBrowserViewController = [[CDVInAppBrowserViewController alloc] initWithUserAgent:originalUA prevUserAgent:[self.commandDelegate userAgent] browserOptions: browserOptions];
+        NSString* userAgent = [CDVUserAgentUtil originalUserAgent];
+        NSString* overrideUserAgent = [self settingForKey:@"OverrideUserAgent"];
+        NSString* appendUserAgent = [self settingForKey:@"AppendUserAgent"];
+        if(overrideUserAgent){
+            userAgent = overrideUserAgent;
+        }
+        if(appendUserAgent){
+            userAgent = [NSString stringWithFormat:@"%@ %@", userAgent, appendUserAgent];
+        }
+        self.inAppBrowserViewController = [[CDVInAppBrowserViewController alloc] initWithUserAgent:userAgent prevUserAgent:[self.commandDelegate userAgent] browserOptions: browserOptions];
         self.inAppBrowserViewController.navigationDelegate = self;
-
         if ([self.viewController conformsToProtocol:@protocol(CDVScreenOrientationDelegate)]) {
             self.inAppBrowserViewController.orientationDelegate = (UIViewController <CDVScreenOrientationDelegate>*)self.viewController;
         }
@@ -390,7 +402,7 @@
             [self.commandDelegate sendPluginResult:pluginResult callbackId:scriptCallbackId];
             return NO;
         }
-    } 
+    }
     //if is an app store link, let the system handle it, otherwise it fails to load it
     else if ([[ url scheme] isEqualToString:@"itms-appss"] || [[ url scheme] isEqualToString:@"itms-apps"]) {
         [theWebView stopLoading];
@@ -481,7 +493,7 @@
 #else
         _webViewDelegate = [[CDVWebViewDelegate alloc] initWithDelegate:self];
 #endif
-        
+
         [self createViews];
     }
 
