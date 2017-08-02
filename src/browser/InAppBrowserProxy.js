@@ -31,15 +31,30 @@ var browserWrap,
 
 function attachNavigationEvents(element, callback) {
     var onError = function () {
-        callback({ type: "loaderror", url: this.contentWindow.location}, {keepCallback: true});
+        try {
+            callback({ type: "loaderror", url: this.contentWindow.location.href}, {keepCallback: true});
+        } catch (err) {
+            // blocked by CORS :\
+            callback({ type: "loaderror", url: null}, {keepCallback: true});
+        }
     };
 
     element.addEventListener("pageshow", function () {
-        callback({ type: "loadstart", url: this.contentWindow.location}, {keepCallback: true});
+        try {
+            callback({ type: "loadstart", url: this.contentWindow.location.href}, {keepCallback: true});
+        } catch (err) {
+            // blocked by CORS :\
+            callback({ type: "loadstart", url: null}, {keepCallback: true});
+        }
     });
 
     element.addEventListener("load", function () {
-        callback({ type: "loadstop", url: this.contentWindow.location}, {keepCallback: true});
+        try {
+            callback({ type: "loadstop", url: this.contentWindow.location.href}, {keepCallback: true});
+        } catch (err) {
+            // blocked by CORS :\
+            callback({ type: "loadstop", url: null}, {keepCallback: true});
+        }
     });
 
     element.addEventListener("error", onError);
@@ -49,7 +64,8 @@ function attachNavigationEvents(element, callback) {
 var IAB = {
     close: function (win, lose) {
         if (browserWrap) {
-            if (win) win({ type: "exit" });
+            // use the "open" function callback so that the exit event is fired properly
+            if (IAB._win) IAB._win({ type: "exit" });
 
             browserWrap.parentNode.removeChild(browserWrap);
             browserWrap = null;
@@ -68,6 +84,8 @@ var IAB = {
             target = args[1],
             features = args[2];
 
+        IAB._win = win;
+
         if (target === "_self" || !target) {
             window.location = strUrl;
         } else if (target === "_system") {
@@ -77,15 +95,18 @@ var IAB = {
             if (!browserWrap) {
                 browserWrap = document.createElement("div");
                 browserWrap.style.position = "absolute";
+                browserWrap.style.top = "0";
+                browserWrap.style.left = "0";
+                browserWrap.style.boxSizing = "border-box";
                 browserWrap.style.borderWidth = "40px";
-                browserWrap.style.width = "calc(100% - 80px)";
-                browserWrap.style.height = "calc(100% - 80px)";
+                browserWrap.style.width = "100vw";
+                browserWrap.style.height = "100vh";
                 browserWrap.style.borderStyle = "solid";
                 browserWrap.style.borderColor = "rgba(0,0,0,0.25)";
 
                 browserWrap.onclick = function () {
                     setTimeout(function () {
-                        IAB.close(win);
+                        IAB.close();
                     }, 0);
                 };
 
@@ -104,6 +125,7 @@ var IAB = {
 
             if (features.indexOf("location=yes") !== -1 || features.indexOf("location") === -1) {
                 popup.style.height = "calc(100% - 60px)";
+                popup.style.marginBottom = "-4px";
 
                 navigationButtonsDiv = document.createElement("div");
                 navigationButtonsDiv.style.height = "60px";
@@ -157,7 +179,7 @@ var IAB = {
                 closeButton.innerHTML = "✖";
                 closeButton.addEventListener("click", function (e) {
                     setTimeout(function () {
-                        IAB.close(win);
+                        IAB.close();
                     }, 0);
                 });
 
